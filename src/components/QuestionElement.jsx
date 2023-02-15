@@ -1,5 +1,5 @@
-import React, {useState, useEffect} from "react";
 import {nanoid} from "nanoid";
+import AnswerButton from "./AnswerButton";
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -11,61 +11,36 @@ function shuffleArray(array) {
     return array;
 }
 
+function replaceCharactersInQuestion(question) { // &quot; ==> "
+    while (question.includes("&quot;")) {
+        question = question.replace("&quot;", '"');
+    }
+    return question;
+}
+
 export default function QuestionElement(props) {
-    let allAnswers = [...props.incorrect_answers, props.correct_answer]; 
-    allAnswers = shuffleArray(allAnswers);
-    const [isQuizFinished, setIsQuizFinished] = useState(props.isQuizFinished);
-
-    const answerObjects = allAnswers.map((answer, index) => {
-        return {
-            id: nanoid(),
-            text: answer,
-            isCorrect: answer === props.correct_answer,
-            isChecked: false,
-            index: index
+    props.question["id"] = nanoid();
+        let answers;
+        if (!props.question.hasOwnProperty("answers")) {
+            answers = [
+                {
+                    id:nanoid(),
+                    text: props.question.correct_answer,
+                    isChecked: false,
+                    isCorrect: true
+                }
+            ];
+            props.question.incorrect_answers.map(answer => answers.push({id:nanoid(), text: answer, isChecked: false, isCorrect: false}));
+            props.question["answers"] = shuffleArray(answers);
+        } else {
+            answers = props.question.answers;
         }
-    });
 
-    const areAnswersCheckedArray = [false, false, false, false, false];
-    const [areAnswersChecked, setAreAnswersChecked] = useState(() => areAnswersCheckedArray);
-
-    // console.log(areAnswersChecked);
-
-    //we need this useState so answers don't refresh on every refresh of the app
-    const [answers, setAnswers] = useState(() => answerObjects); 
-    const [chosenAnswerId, setChosenAnswerId] = useState(() => "");
-
-    function getCorrectAnswerIndex() {
-        return answers.indexOf(answers.find(object => object.text == props.correct_answer));
-    }
-
-    function handleAnswerChange(chosenAnswerId) {
-        const indexOfChosenAnswer = answers.indexOf(answers.find(object => object.id == chosenAnswerId));
-        const indexOfCorrectAnswer = getCorrectAnswerIndex();
-
-        areAnswersChecked[indexOfChosenAnswer] = true;
-
-        props.handleAnswerChange(indexOfChosenAnswer, indexOfCorrectAnswer, props.id, areAnswersChecked); 
-        setChosenAnswerId(chosenAnswerId);
-    }
-
-    const buttonAnswers = answers.map((answer, index) => {
-        // console.log(areAnswersChecked[index]);
-        // console.log(answer);
-        return <button 
-            key={nanoid()} 
-            onClick={() => handleAnswerChange(answer.id)} 
-            className={`answer-button ${chosenAnswerId === answer.id ? "active" : ""} ${isQuizFinished && answer.isCorrect ? "correct" : ""}`}
-            >
-            {answer.text}
-        </button>
-    });
-
-    console.log(chosenAnswerId);
-
-    return <div className="question-element">
-        <h3 className="question-element-heading">{props.text}</h3>
-        {buttonAnswers}
-        <hr style={{color: "#DBDEF0"}}></hr>
-    </div>
+        return <div className="question-container" key={nanoid()}>
+            <h3>{replaceCharactersInQuestion(props.question.question)}</h3>
+            {answers.map(answer => {
+                return <AnswerButton key={nanoid()} answer={answer} isQuizFinished={props.isQuizFinished} handleClick={() => props.handleAnswerChange(props.question.id, answer.id)} />
+            })}
+            <hr style={{marginTop: "20px"}}/>
+        </div>
 }

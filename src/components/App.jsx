@@ -1,130 +1,93 @@
 import React, {useState, useEffect} from "react";
-import QuestionElement from "./QuestionElement";
 import {nanoid} from "nanoid";
+import QuestionElement from "./QuestionElement";
+
 
 export default function App() {
     const [isHomeScreen, setIsHomeScreen] = useState(true);
-    const [questions, setQuestions] = useState([]);
+    const [questions, setQuestions] = useState(() => []);
     const [isQuizFinished, setIsQuizFinished] = useState(false);
-    let chosenAnswersArray = [];
-    const [correctAnswersCount, setCorrectAnswerCount] = useState(0);
+    const [score, setScore] = useState(0);
 
     useEffect(() => {
-        getQuestions();
+        fetchAndUpdateQuestions();
     }, []);
 
-    function getQuestions() {
+    function fetchAndUpdateQuestions() {
         fetch("https://opentdb.com/api.php?amount=5&category=9&difficulty=medium")
-        .then(res => res.json())
-        .then(data => setQuestions(data.results));
+            .then(res => res.json())
+            .then(data => setQuestions(data.results));
     }
 
     function handleHomeButtonClick() {
         setIsHomeScreen(false);
     }
 
-    function createAnswerObject(indexOfChosenAnswer, indexOfCorrectAnswer, idOfChosenQuestion) {
-        return {
-            questionId: idOfChosenQuestion,
-            chosenAnswerIndex: indexOfChosenAnswer,
-            correctAnswerIndex: indexOfCorrectAnswer
-        }
+    function handleAnswerChange(questionId, answerId) {
+        const newQuestions  = questions.map(question => {
+            for (let i=0; i<question.answers.length; i++) {
+                if (question.id === questionId && question.answers[i].isChecked) {
+                    question.answers[i].isChecked = false;
+                }
+                if (question.answers[i].id === answerId) {
+                    question.answers[i].isChecked = !question.answers[i].isChecked;
+                }
+            }
+            return question;
+        });
+
+        setQuestions(newQuestions);
     }
 
-    // const [checkedAnswers, setCheckedAnswers] = [];
-    // console.log(checkedAnswers);
+    function handleQuizFinish() {
+        if (isQuizFinished) {
+            fetchAndUpdateQuestions();
+            setIsQuizFinished(false);
+            return;
+        }
 
-    // useEffect(() => {
-    //     localStorage.setItem("areAnswerChecked", checkedAnswers);
-    // }, [checkedAnswers])
-
-    function handleAnswerChange(indexOfChosenAnswer, indexOfCorrectAnswer, idOfChosenQuestion, areAnswersChecked) {
-        let isInTheArray = false;
-        let indexOfItemToReplace;
-
-        // setCheckedAnswers(prevAnswers => {
-        //     return [
-        //         ...prevAnswers,
-        //         areAnswersChecked
-        //     ]
-        // });
-
-        chosenAnswersArray.map((answer, index) => {
-            if (idOfChosenQuestion == answer.questionId) {
-                isInTheArray = true;
-                indexOfItemToReplace = index;
+        let score = 0;
+        questions.forEach(question => {
+            const chosenAnswer = question.answers.find(answer => answer.isChecked === true);
+            if (chosenAnswer.isCorrect) {
+                score++;
             }
         });
-
-        if (!isInTheArray) {
-            chosenAnswersArray.push(createAnswerObject(indexOfChosenAnswer, indexOfCorrectAnswer, idOfChosenQuestion));
-        } else {
-            chosenAnswersArray[indexOfItemToReplace] = createAnswerObject(indexOfChosenAnswer, indexOfCorrectAnswer, idOfChosenQuestion);
-        }
-        // console.log(chosenAnswersArray);
-    }
-
-    function countCorrectAnswers() {
-        let count = 0;
-        chosenAnswersArray.map(answer => {
-            answer.chosenAnswerIndex === answer.correctAnswerIndex && count++;
-        });
-
-        setCorrectAnswerCount(count);
-    }
-
-    function handleAnswersSubmit() {
+        setScore(score);
         setIsQuizFinished(true);
-        countCorrectAnswers(chosenAnswersArray);
     }
-
-    function restartGame() {
-        chosenAnswersArray = [];
-        getQuestions();
-        setIsQuizFinished(false);
-    } 
 
     const questionElements = questions.map(question => {
-        return <QuestionElement 
-            key={nanoid()} 
-            id={nanoid()} 
-            text={question.question} 
-            incorrect_answers={question.incorrect_answers}
-            correct_answer={question.correct_answer}
-            handleAnswerChange={handleAnswerChange}
+        return <QuestionElement
+            key={nanoid()}
+            question={question}
             isQuizFinished={isQuizFinished}
+            handleAnswerChange={(questionId, answerId) => handleAnswerChange(questionId, answerId)}
         />
     });
 
 
-    return <main className={isHomeScreen ? "flex-centered" : "questions-container"}>
-        {isHomeScreen 
+    return <main className={isHomeScreen ? "home-screen" : "questions-container"}>
+        {isHomeScreen
             ?
             <div className="home-container">
                 <h1 className="home-heading">Quizzical</h1>
-                <p className="home-description">Some description if needed</p>
+                {/* <p className="home-description">Some description if needed</p> */}
                 <button onClick={handleHomeButtonClick} className="home-button">Start quiz</button>
-            </div> 
+            </div>
             :
             <form>
                 {questionElements}
                 <div className="score-container">
-                    {isQuizFinished && <p>You scored {correctAnswersCount}/5 answers</p>}
-                    {!isQuizFinished ? <button 
-                        onClick={handleAnswersSubmit} 
-                        type="button" 
-                        className="home-button"
-                    >
-                        Check answers
-                    </button> :
+                    {isQuizFinished && <p>You scored {score}/5 answers</p>}
+
                     <button
-                        onClick={restartGame}
+                        onClick={handleQuizFinish}
                         type="button"
                         className="home-button"
                     >
-                        Play again
+                        {isQuizFinished ? "Play again" : "Check answers"}
                     </button>
-                    }
                 </div>
             </form>
         }
